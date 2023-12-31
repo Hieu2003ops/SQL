@@ -1,4 +1,4 @@
-create database Week1
+﻿create database Week1
 use Week1
 
 CREATE TABLE sales (
@@ -132,18 +132,73 @@ from sales inner join members on sales.customer_id=members.customer_id
 inner join menu on menu.product_id=sales.product_id
 where sales.order_date >=members.join_date
 
+-- với cte, rank 
+WITH CustomerFirstOrder AS (
+  SELECT
+    sales.customer_id as ID_KH,
+    menu.product_name as San_pham_dau_tien,
+    sales.order_date as Ngay_mua,
+    members.join_date as Ngay_dau_tien_thanh_members,
+    RANK() OVER (
+      PARTITION BY sales.customer_id 
+      ORDER BY sales.order_date ASC
+    ) AS purchase_rank
+FROM sales inner join members ON sales.customer_id = members.customer_id
+			inner join menu  ON sales.product_id = menu.product_id
+WHERE sales.order_date >= members.join_date
+)
+SELECT 
+  ID_KH,
+  San_pham_dau_tien,
+  Ngay_mua,
+  Ngay_dau_tien_thanh_members
+FROM CustomerFirstOrder
+WHERE purchase_rank = 1
+
+
 --Q7 : 
 select sales.customer_id as ID_KH,
 		menu.product_name as San_pham_dau_tien,
 		members.join_date as Ngay_dau_tien
 from sales inner join members on sales.customer_id=members.customer_id
-inner join menu on menu.product_id=sales.product_id
+			inner join menu on menu.product_id=sales.product_id
 where sales.order_date < members.join_date
 and sales.order_date= ( select max(sales2.order_date) from sales as sales2 
 							where sales2.customer_id=sales.customer_id
 							and sales2.order_date<members.join_date)
-group by sales.customer_id,menu.product_name
+group by sales.customer_id,menu.product_name, members.join_date
 order by sales.customer_id,members.join_date 
+
+
+-- với cte, rank
+WITH RankedPurchases AS (
+  SELECT
+    sales.customer_id as ID_KH,
+    menu.product_name as San_pham_dau_tien,
+    sales.order_date as ngay_mua_gan_nhat,
+    members.join_date as Ngay_dau_tien_thanh_member,
+    RANK() OVER (
+      PARTITION BY sales.customer_id 
+      ORDER BY sales.order_date DESC
+    ) AS purchase_rank
+from sales inner join members on sales.customer_id = members.customer_id
+			inner join menu  on sales.product_id = menu.product_id
+where sales.order_date < members.join_date
+)
+SELECT 
+  ID_KH,
+  San_pham_dau_tien,
+  ngay_mua_gan_nhat,
+  Ngay_dau_tien_thanh_member
+FROM RankedPurchases
+WHERE purchase_rank = 1
+ORDER BY ID_KH, ngay_mua_gan_nhat,Ngay_dau_tien_thanh_member
+
+-- check 
+select * from sales
+select * from menu
+select * from members
+
 -- Q8 : 
 select sales.customer_id as ID_KH,
 		count(*) as Tong_so_mat_hang,
@@ -152,6 +207,7 @@ from sales inner join menu on sales.product_id=menu.product_id
 		inner join members on sales.customer_id=members.customer_id
 where sales.order_date < members.join_date
 group by sales.customer_id
+
 --Q9 : 
 select
   sales.customer_id as ID_KH,
@@ -160,9 +216,10 @@ select
         ELSE menu.price * 10
       END) as Tong_Diem
 FROM sales inner join menu on sales.product_id = menu.product_id
+where EXISTS (select * from members where members.customer_id = sales.customer_id)
 group by sales.customer_id
---Q10 : 
 
+--Q10 : 
 SELECT 
   sales.customer_id as ID_KH,
   SUM(CASE 
